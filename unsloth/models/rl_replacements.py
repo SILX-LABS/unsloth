@@ -247,19 +247,21 @@ def grpo_trainer_compute_loss(function_name, function):
                 n_chunks = self.args.unsloth_num_chunks,
             )
 
-        # Log the metrics
-        # completion_length = self.accelerator.gather_for_metrics(completion_mask.sum(1)).float().mean().item()
+        if not hasattr(self, '_metrics'):
+            self._metrics = {}
 
-        # mean_kl = ((per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
-        # self._metrics["kl"].append(self.accelerator.gather_for_metrics(mean_kl).mean().item())
-
-        if "train" in self._metrics:
-            mode = "eval" if self.control.should_evaluate else "train"
-            self._metrics[mode]["completion_length"].append(completion_length.item())
-            self._metrics[mode]["kl"].append(mean_kl.item())
+        # If we're in training mode and 'train' not in metrics, initialize it
+        if self.control.should_evaluate:
+            mode = "eval"
         else:
-            self._metrics["completion_length"].append(completion_length.item())
-            self._metrics["kl"].append(mean_kl.item())
+            mode = "train"
+            if "train" not in self._metrics:
+                self._metrics["train"] = defaultdict(list)
+                self._metrics["eval"] = defaultdict(list)
+
+        # Now safely log the metrics
+        self._metrics[mode]["completion_length"].append(completion_length.item())
+        self._metrics[mode]["kl"].append(mean_kl.item())
         return loss
     pass
 
